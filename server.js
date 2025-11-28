@@ -16,8 +16,8 @@ const transporter = nodemailer.createTransport({
   port: 465,
   secure: true,
   auth: {
-    user: 'crmchs.acosta.pascualsebatian@gmail.com', // ⚠️ REPLACE WITH YOUR GMAIL
-    pass: 'bxmn pynv scix ddqj', // ⚠️ REPLACE WITH YOUR 16-CHAR APP PASSWORD (NO SPACES)
+    user: 'gmail', // ⚠️ REPLACE WITH YOUR GMAIL
+    pass: 'app-password', // ⚠️ REPLACE WITH YOUR 16-CHAR APP PASSWORD (NO SPACES)
   },
   connectionTimeout: 10000,
   greetingTimeout: 10000,
@@ -56,7 +56,7 @@ app.post('/api/send-share-notification', async (req, res) => {
     } = req.body;
 
     // Verify API secret - HARDCODED
-    const API_SECRET = '97df55ca6de5d5273d6f10618e0e2f58'; // ⚠️ REPLACE WITH YOUR SECRET KEY
+    const API_SECRET = 'api'; // ⚠️ REPLACE WITH YOUR SECRET KEY
     if (authToken !== API_SECRET) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -293,3 +293,4 @@ app.listen(PORT, () => {
   console.log(`📧 Gmail: Hardcoded in server.js`);
   console.log(`🔐 API Secret: Hardcoded in server.js`);
 });
+
