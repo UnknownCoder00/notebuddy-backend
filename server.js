@@ -10,27 +10,13 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Gmail transporter configuration - HARDCODED CREDENTIALS
+// Gmail transporter configuration
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
+  service: 'gmail',
   auth: {
-    user: 'gmail', // ⚠️ REPLACE WITH YOUR GMAIL
-    pass: 'app-password', // ⚠️ REPLACE WITH YOUR 16-CHAR APP PASSWORD (NO SPACES)
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD, // App-specific password
   },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
-});
-
-// Test SMTP connection on startup
-transporter.verify((error, success) => {
-  if (error) {
-    console.log('❌ SMTP connection failed:', error);
-  } else {
-    console.log('✅ SMTP server is ready to send emails');
-  }
 });
 
 // Health check endpoint
@@ -55,9 +41,8 @@ app.post('/api/send-share-notification', async (req, res) => {
       authToken,
     } = req.body;
 
-    // Verify API secret - HARDCODED
-    const API_SECRET = 'api'; // ⚠️ REPLACE WITH YOUR SECRET KEY
-    if (authToken !== API_SECRET) {
+    // Verify API secret
+    if (authToken !== process.env.API_SECRET) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
@@ -256,9 +241,8 @@ If you didn't expect this email, you can safely ignore it.
     `;
 
     // Send email
-    const GMAIL_USER = 'your-email@gmail.com'; // ⚠️ SAME EMAIL AS ABOVE
     const mailOptions = {
-      from: `"NoteBuddy" <${GMAIL_USER}>`,
+      from: `"NoteBuddy" <${process.env.GMAIL_USER}>`,
       to: recipientEmail,
       subject: `📝 ${senderEmail} shared "${noteTitle}" with you`,
       text: emailText,
@@ -290,7 +274,6 @@ If you didn't expect this email, you can safely ignore it.
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 NoteBuddy Email Service running on port ${PORT}`);
-  console.log(`📧 Gmail: Hardcoded in server.js`);
-  console.log(`🔐 API Secret: Hardcoded in server.js`);
+  console.log(`📧 Gmail: ${process.env.GMAIL_USER}`);
+  console.log(`🔐 API Secret: ${process.env.API_SECRET ? '✓ Set' : '✗ Not Set'}`);
 });
-
