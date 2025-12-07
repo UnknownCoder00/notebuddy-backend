@@ -241,4 +241,6 @@ app.listen(PORT, () => {
   console.log(`🚀 NoteBuddy Email Service running on port ${PORT}`);
   console.log(`📧 SendGrid From: ${process.env.SENDGRID_FROM_EMAIL}`);
   console.log(`🔐 API Secret: ${process.env.API_SECRET ? '✓ Set' : '✗ Not Set'}`);
+  console.log(`🔑 SendGrid API Key: ${process.env.SENDGRID_API_KEY ? '✓ Set' : '✗ Not Set'}`); 
 });
+
