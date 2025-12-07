@@ -1,5 +1,5 @@
 const express = require('express');
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail'); // Use SendGrid instead
 const cors = require('cors');
 require('dotenv').config();
 
@@ -10,14 +10,8 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Gmail transporter configuration
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD, // App-specific password
-  },
-});
+// Configure SendGrid
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -61,11 +55,9 @@ app.post('/api/send-share-notification', async (req, res) => {
 
     // Create deep link for opening in NoteBuddy
     const deepLink = `notebuddy://shared/${sharedNoteId}`;
-    
-    // Create web fallback link (you can customize this)
     const webLink = `https://notebuddy.app/shared/${sharedNoteId}`;
 
-    // Email HTML template
+    // Email HTML template (same as before)
     const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -140,15 +132,6 @@ app.post('/api/send-share-notification', async (req, res) => {
       font-size: 16px;
       margin: 10px;
     }
-    .button:hover {
-      background-color: #6A3DE8;
-    }
-    .button-secondary {
-      background-color: #4CAF50;
-    }
-    .button-secondary:hover {
-      background-color: #45a049;
-    }
     .footer {
       text-align: center;
       margin-top: 30px;
@@ -164,18 +147,6 @@ app.post('/api/send-share-notification', async (req, res) => {
       margin: 20px 0;
       font-size: 14px;
       color: #E65100;
-    }
-    @media only screen and (max-width: 600px) {
-      body {
-        padding: 10px;
-      }
-      .container {
-        padding: 20px;
-      }
-      .button {
-        display: block;
-        margin: 10px 0;
-      }
     }
   </style>
 </head>
@@ -200,7 +171,7 @@ app.post('/api/send-share-notification', async (req, res) => {
 
     <div class="button-container">
       <a href="${deepLink}" class="button">Open in NoteBuddy</a>
-      <a href="${webLink}" class="button button-secondary">View in Browser</a>
+      <a href="${webLink}" class="button" style="background-color: #4CAF50;">View in Browser</a>
     </div>
 
     <div class="info-box">
@@ -211,17 +182,12 @@ app.post('/api/send-share-notification', async (req, res) => {
     <div class="footer">
       <p>This note was shared via NoteBuddy</p>
       <p>If you didn't expect this email, you can safely ignore it.</p>
-      <p style="margin-top: 15px;">
-        <a href="#" style="color: #7C4DFF; text-decoration: none;">Privacy Policy</a> | 
-        <a href="#" style="color: #7C4DFF; text-decoration: none;">Unsubscribe</a>
-      </p>
     </div>
   </div>
 </body>
 </html>
     `;
 
-    // Plain text version (fallback)
     const emailText = `
 ${senderEmail} has shared a note with you on NoteBuddy
 
@@ -240,24 +206,23 @@ This note was shared via NoteBuddy
 If you didn't expect this email, you can safely ignore it.
     `;
 
-    // Send email
-    const mailOptions = {
-      from: `"NoteBuddy" <${process.env.GMAIL_USER}>`,
+    // Send email using SendGrid
+    const msg = {
       to: recipientEmail,
+      from: process.env.SENDGRID_FROM_EMAIL, // Must be verified in SendGrid
       subject: `📝 ${senderEmail} shared "${noteTitle}" with you`,
       text: emailText,
       html: emailHtml,
     };
 
-    const info = await transporter.sendMail(mailOptions);
+    await sgMail.send(msg);
 
-    console.log('✅ Email sent successfully:', info.messageId);
+    console.log('✅ Email sent successfully via SendGrid');
     console.log(`📧 From: ${senderEmail} → To: ${recipientEmail}`);
     console.log(`📝 Note: "${noteTitle}"`);
 
     res.json({
       success: true,
-      messageId: info.messageId,
       recipient: recipientEmail,
       timestamp: new Date().toISOString()
     });
@@ -274,6 +239,6 @@ If you didn't expect this email, you can safely ignore it.
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 NoteBuddy Email Service running on port ${PORT}`);
-  console.log(`📧 Gmail: ${process.env.GMAIL_USER}`);
+  console.log(`📧 SendGrid From: ${process.env.SENDGRID_FROM_EMAIL}`);
   console.log(`🔐 API Secret: ${process.env.API_SECRET ? '✓ Set' : '✗ Not Set'}`);
 });
