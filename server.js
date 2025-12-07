@@ -6,6 +6,10 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// IN-MEMORY STORAGE (for development)
+// In production, replace with MongoDB, PostgreSQL, etc.
+const sharedNotesDatabase = {}; // { sharedNoteId: noteData }
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -22,6 +26,51 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Fetch shared note by ID (called when deep link is opened)
+app.get('/api/shared-notes/:sharedNoteId', (req, res) => {
+  try {
+    const { sharedNoteId } = req.params;
+    const recipientEmail = req.query.recipientEmail;
+
+    console.log(`🔍 Fetching shared note: ${sharedNoteId}`);
+
+    if (!sharedNoteId) {
+      return res.status(400).json({ error: 'Missing sharedNoteId' });
+    }
+
+    const sharedNote = sharedNotesDatabase[sharedNoteId];
+
+    if (!sharedNote) {
+      return res.status(404).json({ 
+        error: 'Shared note not found',
+        details: 'The note may have been deleted or the link is invalid'
+      });
+    }
+
+    // Optional: Verify recipient email matches
+    if (recipientEmail && sharedNote.sharedToEmail !== recipientEmail) {
+      return res.status(403).json({ 
+        error: 'Unauthorized',
+        details: 'This note was not shared with your email'
+      });
+    }
+
+    console.log(`✅ Shared note found: ${sharedNote.noteTitle}`);
+
+    res.json({
+      success: true,
+      note: sharedNote
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching shared note:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch shared note',
+      details: error.message 
+    });
+  }
+});
+
 // Send share notification endpoint
 app.post('/api/send-share-notification', async (req, res) => {
   try {
@@ -30,6 +79,8 @@ app.post('/api/send-share-notification', async (req, res) => {
       senderEmail,
       noteTitle,
       noteContent,
+      noteColor,
+      noteDate,
       sharedNoteId,
       message,
       authToken,
@@ -48,16 +99,35 @@ app.post('/api/send-share-notification', async (req, res) => {
       });
     }
 
+    // STORE THE SHARED NOTE
+    const sharedNote = {
+      id: sharedNoteId,
+      noteTitle: noteTitle,
+      noteContent: noteContent,
+      noteColor: noteColor || '#FFFFFF',
+      noteDate: noteDate || new Date().toISOString(),
+      sharedByEmail: senderEmail,
+      sharedToEmail: recipientEmail,
+      message: message || '',
+      sharedAt: new Date().toISOString(),
+      isRead: false,
+      isAccepted: false,
+    };
+
+    // Store in memory/database
+    sharedNotesDatabase[sharedNoteId] = sharedNote;
+    console.log(`💾 Stored shared note: ${sharedNoteId}`);
+
     // Truncate content for preview (max 200 chars)
     const contentPreview = noteContent.length > 200 
       ? noteContent.substring(0, 200) + '...' 
       : noteContent;
 
-    // Create deep link for opening in NoteBuddy
-    const deepLink = `notebuddy://shared/${sharedNoteId}`;
+    // Create deep link for opening in NoteBuddy (includes email for security)
+    const deepLink = `notebuddy://shared/${sharedNoteId}?email=${encodeURIComponent(recipientEmail)}`;
     const webLink = `https://notebuddy.app/shared/${sharedNoteId}`;
 
-    // Email HTML template (same as before)
+    // Email HTML template
     const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -224,6 +294,7 @@ If you didn't expect this email, you can safely ignore it.
     res.json({
       success: true,
       recipient: recipientEmail,
+      sharedNoteId: sharedNoteId,
       timestamp: new Date().toISOString()
     });
 
@@ -243,4 +314,3 @@ app.listen(PORT, () => {
   console.log(`🔐 API Secret: ${process.env.API_SECRET ? '✓ Set' : '✗ Not Set'}`);
   console.log(`🔑 SendGrid API Key: ${process.env.SENDGRID_API_KEY ? '✓ Set' : '✗ Not Set'}`); 
 });
-
